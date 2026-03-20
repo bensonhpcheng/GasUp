@@ -1,0 +1,2061 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="GasUp">
+<title>GasUp</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0a0c0f;
+    --surface: #111418;
+    --surface2: #181c22;
+    --border: #232830;
+    --accent: #f5a623;
+    --accent2: #e8521a;
+    --green: #39d98a;
+    --red: #ff4d4d;
+    --text: #e8eaed;
+    --muted: #6b7280;
+    --font-display: 'Rajdhani', sans-serif;
+    --font-mono: 'Share Tech Mono', monospace;
+    --font-body: 'Barlow', sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    height: 100%;
+    overflow: hidden;
+  }
+
+  #app {
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    max-width: 430px;
+    margin: 0 auto;
+    position: relative;
+  }
+
+  /* ── NAV ── */
+  nav {
+    display: flex;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    position: relative;
+    z-index: 10;
+  }
+
+  .nav-btn {
+    flex: 1;
+    padding: 14px 8px 12px;
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-family: var(--font-display);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: color 0.2s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    position: relative;
+  }
+
+  .nav-btn svg { width: 20px; height: 20px; }
+
+  .nav-btn.active {
+    color: var(--accent);
+  }
+
+  .nav-btn.active::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 20%;
+    right: 20%;
+    height: 2px;
+    background: var(--accent);
+    border-radius: 2px 2px 0 0;
+  }
+
+  /* ── SCREENS ── */
+  .screen {
+    display: none;
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .screen.active { display: block; }
+
+  /* ── HEADER ── */
+  .screen-header {
+    padding: 20px 20px 12px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    position: sticky;
+    top: 0;
+    z-index: 5;
+  }
+
+  .screen-title {
+    font-family: var(--font-display);
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text);
+  }
+
+  .screen-sub {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 2px;
+    font-family: var(--font-mono);
+  }
+
+  /* ── LOG SCREEN ── */
+  .log-body { padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+
+  .field-group {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .field-label {
+    font-family: var(--font-display);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 10px 16px 0;
+  }
+
+  .field-input {
+    width: 100%;
+    background: none;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 26px;
+    padding: 6px 16px 12px;
+    caret-color: var(--accent);
+  }
+
+  .field-input::placeholder { color: var(--border); }
+
+  .field-input:focus { background: rgba(245,166,35,0.04); }
+
+  .field-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  /* location field */
+  .location-field {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    transition: border-color 0.2s;
+  }
+
+  .location-field:active { border-color: var(--accent); }
+
+  .location-field svg { color: var(--accent); flex-shrink: 0; }
+
+  .location-text {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .location-label {
+    font-family: var(--font-display);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .location-value {
+    font-family: var(--font-body);
+    font-size: 14px;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 2px;
+  }
+
+  .location-value.detecting { color: var(--muted); font-style: italic; }
+
+  /* date field */
+  .date-field {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 16px 12px;
+  }
+
+  .date-field input[type="date"] {
+    background: none;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 20px;
+    width: 100%;
+    color-scheme: dark;
+  }
+
+  /* derived display */
+  .derived-box {
+    background: linear-gradient(135deg, rgba(245,166,35,0.08), rgba(232,82,26,0.06));
+    border: 1px solid rgba(245,166,35,0.25);
+    border-radius: 10px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .derived-label {
+    font-family: var(--font-display);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  .derived-value {
+    font-family: var(--font-mono);
+    font-size: 28px;
+    color: var(--accent);
+  }
+
+  .derived-unit {
+    font-family: var(--font-display);
+    font-size: 13px;
+    color: var(--muted);
+    margin-left: 4px;
+  }
+
+  /* submit button */
+  .submit-btn {
+    width: 100%;
+    padding: 18px;
+    background: var(--accent);
+    border: none;
+    border-radius: 12px;
+    color: #000;
+    font-family: var(--font-display);
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.1s;
+    margin-top: 4px;
+  }
+
+  .submit-btn:active { transform: scale(0.98); opacity: 0.9; }
+  .submit-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .submit-btn.syncing {
+    background: var(--surface2);
+    color: var(--muted);
+    border: 1px solid var(--border);
+  }
+
+  /* ── DASHBOARD ── */
+  .dash-body { padding: 16px; display: flex; flex-direction: column; gap: 16px; padding-bottom: 32px; }
+
+  /* stat cards */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+  }
+
+  .stat-card.orange::before { background: var(--accent); }
+  .stat-card.red::before { background: var(--accent2); }
+  .stat-card.green::before { background: var(--green); }
+  .stat-card.blue::before { background: #4d9fff; }
+
+  .stat-label {
+    font-family: var(--font-display);
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+
+  .stat-value {
+    font-family: var(--font-mono);
+    font-size: 24px;
+    color: var(--text);
+    line-height: 1;
+  }
+
+  .stat-unit {
+    font-size: 11px;
+    color: var(--muted);
+    font-family: var(--font-display);
+    margin-left: 2px;
+  }
+
+  .stat-delta {
+    font-family: var(--font-display);
+    font-size: 11px;
+    margin-top: 4px;
+    font-weight: 500;
+  }
+
+  .stat-delta.up { color: var(--green); }
+  .stat-delta.down { color: var(--red); }
+  .stat-delta.neutral { color: var(--muted); }
+
+  /* chart card */
+  .chart-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+  }
+
+  .chart-title {
+    font-family: var(--font-display);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 14px;
+  }
+
+  .chart-wrap { position: relative; height: 160px; }
+
+  /* insight card */
+  .insight-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+
+  .insight-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 18px;
+  }
+
+  .insight-icon.orange { background: rgba(245,166,35,0.15); }
+  .insight-icon.green { background: rgba(57,217,138,0.12); }
+  .insight-icon.red { background: rgba(255,77,77,0.12); }
+  .insight-icon.blue { background: rgba(77,159,255,0.12); }
+
+  .insight-title {
+    font-family: var(--font-display);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    color: var(--text);
+    margin-bottom: 3px;
+  }
+
+  .insight-body {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  .insight-body strong { color: var(--text); }
+
+  /* empty state */
+  .empty-state {
+    text-align: center;
+    padding: 60px 30px;
+    color: var(--muted);
+    font-family: var(--font-display);
+  }
+
+  .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+  .empty-state p { letter-spacing: 1px; font-size: 13px; }
+
+  /* ── HISTORY SCREEN ── */
+  .history-body { padding: 16px; display: flex; flex-direction: column; gap: 8px; padding-bottom: 32px; }
+
+  .fill-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .fill-date-block {
+    text-align: center;
+    min-width: 40px;
+  }
+
+  .fill-month {
+    font-family: var(--font-display);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  .fill-day {
+    font-family: var(--font-mono);
+    font-size: 22px;
+    line-height: 1;
+    color: var(--text);
+  }
+
+  .fill-divider {
+    width: 1px;
+    height: 40px;
+    background: var(--border);
+  }
+
+  .fill-details { flex: 1; min-width: 0; }
+
+  .fill-mpg {
+    font-family: var(--font-mono);
+    font-size: 18px;
+    color: var(--text);
+  }
+
+  .fill-meta {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .fill-cost {
+    font-family: var(--font-mono);
+    font-size: 16px;
+    color: var(--accent);
+    text-align: right;
+  }
+
+  .fill-cpg {
+    font-size: 11px;
+    color: var(--muted);
+    text-align: right;
+    margin-top: 2px;
+  }
+
+  /* ── SETTINGS SCREEN ── */
+  .settings-body { padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+
+  .settings-section-title {
+    font-family: var(--font-display);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-top: 8px;
+  }
+
+  .settings-field {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .settings-field label {
+    display: block;
+    font-family: var(--font-display);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 10px 16px 0;
+  }
+
+  .settings-field input {
+    width: 100%;
+    background: none;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 15px;
+    padding: 6px 16px 12px;
+  }
+
+  .settings-field input::placeholder { color: var(--muted); font-size: 13px; }
+
+  .save-settings-btn {
+    width: 100%;
+    padding: 16px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    color: var(--text);
+    font-family: var(--font-display);
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: border-color 0.2s;
+  }
+
+  .save-settings-btn:active { border-color: var(--accent); }
+
+  .sync-status {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-align: center;
+    padding: 8px;
+    border-radius: 6px;
+  }
+
+  .sync-status.ok { color: var(--green); background: rgba(57,217,138,0.08); }
+  .sync-status.err { color: var(--red); background: rgba(255,77,77,0.08); }
+  .sync-status.pending { color: var(--muted); background: rgba(107,114,128,0.08); }
+
+  /* ── TOAST ── */
+  .toast {
+    position: fixed;
+    bottom: 90px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 20px;
+    font-family: var(--font-display);
+    font-size: 13px;
+    letter-spacing: 1px;
+    color: var(--text);
+    opacity: 0;
+    transition: opacity 0.3s, transform 0.3s;
+    pointer-events: none;
+    z-index: 100;
+    white-space: nowrap;
+  }
+
+  .toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  .toast.success { border-color: var(--green); color: var(--green); }
+  .toast.error { border-color: var(--red); color: var(--red); }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 0; }
+  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+  /* ── DELETE CONFIRM ── */
+  #delete-confirm-overlay {
+    position: fixed; inset: 0; z-index: 300;
+    display: none; align-items: flex-end; justify-content: center;
+    max-width: 430px; margin: 0 auto;
+  }
+  #delete-confirm-overlay.open { display: flex; }
+  #delete-confirm-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7); backdrop-filter: blur(3px); z-index: 0;
+  }
+  #delete-confirm-sheet {
+    position: relative; z-index: 1; width: 100%;
+    background: var(--surface); border-top: 1px solid var(--border);
+    border-radius: 20px 20px 0 0;
+    padding: 24px 20px env(safe-area-inset-bottom, 20px);
+    animation: slideUp 0.22s cubic-bezier(0.32,0.72,0,1);
+  }
+  #delete-confirm-icon { font-size: 36px; text-align: center; margin-bottom: 12px; }
+  #delete-confirm-msg {
+    font-family: var(--font-body); font-size: 15px; color: var(--text);
+    text-align: center; line-height: 1.5; margin-bottom: 20px;
+  }
+  #delete-confirm-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .del-btn {
+    padding: 15px; border-radius: 10px; border: none;
+    font-family: var(--font-display); font-size: 14px; font-weight: 700;
+    letter-spacing: 2px; text-transform: uppercase; cursor: pointer;
+  }
+  .del-btn.cancel { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
+  .del-btn.confirm { background: var(--red); color: #fff; }
+  .del-btn.confirm:active { opacity: 0.85; }
+
+
+  /* ── FILL CARD ACTIONS ── */
+  .fill-card { cursor: pointer; transition: border-color 0.15s; }
+  .fill-card.expanded { border-color: rgba(245,166,35,0.35); }
+
+  .fill-card-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+  }
+
+  .fill-action-btn {
+    flex: 1;
+    padding: 10px 0;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    font-family: var(--font-display);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .fill-action-btn.edit   { color: var(--accent); }
+  .fill-action-btn.edit:active   { border-color: var(--accent); background: rgba(245,166,35,0.08); }
+  .fill-action-btn.delete { color: var(--red); }
+  .fill-action-btn.delete:active { border-color: var(--red); background: rgba(255,77,77,0.08); }
+
+  .chevron { color: var(--muted); font-size: 11px; flex-shrink: 0; transition: transform 0.2s; display:inline-block; }
+  .chevron.open { transform: rotate(90deg); color: var(--accent); }
+
+  /* ── EDIT PANEL ── */
+  #edit-overlay {
+    position: fixed; inset: 0; z-index: 200;
+    display: none; flex-direction: column; justify-content: flex-end;
+    max-width: 430px; margin: 0 auto;
+  }
+  #edit-overlay.open { display: flex; }
+  #edit-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.65); backdrop-filter: blur(3px); z-index: 0;
+  }
+  #edit-sheet {
+    position: relative; z-index: 1;
+    background: var(--surface); border-top: 1px solid var(--border);
+    border-radius: 20px 20px 0 0;
+    padding-bottom: env(safe-area-inset-bottom, 16px);
+    animation: slideUp 0.28s cubic-bezier(0.32,0.72,0,1);
+    max-height: 90dvh; overflow-y: auto;
+  }
+  @keyframes slideUp {
+    from { transform: translateY(100%); opacity: 0.5; }
+    to   { transform: translateY(0);    opacity: 1;   }
+  }
+  #edit-sheet-header {
+    padding: 18px 20px 14px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; background: var(--surface); z-index: 2;
+  }
+  #edit-sheet-title {
+    font-family: var(--font-display); font-size: 16px; font-weight: 700;
+    letter-spacing: 2px; text-transform: uppercase; color: var(--text);
+  }
+  #edit-close-btn {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--muted); font-size: 18px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #edit-sheet-body { padding: 16px 20px; display: flex; flex-direction: column; gap: 12px; }
+  .edit-field {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 10px; overflow: hidden; transition: border-color 0.2s;
+  }
+  .edit-field:focus-within { border-color: var(--accent); }
+  .edit-field label {
+    display: block; font-family: var(--font-display); font-size: 10px;
+    font-weight: 600; letter-spacing: 2px; text-transform: uppercase;
+    color: var(--muted); padding: 10px 14px 0;
+  }
+  .edit-field input, .edit-field select {
+    width: 100%; background: none; border: none; outline: none;
+    color: var(--text); font-family: var(--font-mono); font-size: 20px;
+    padding: 6px 14px 12px; caret-color: var(--accent); color-scheme: dark;
+  }
+  .edit-field select option { background: var(--surface2); }
+  #edit-sheet-actions {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 10px; padding: 4px 20px 16px;
+  }
+  .edit-save-btn {
+    padding: 15px; border-radius: 10px; border: none;
+    font-family: var(--font-display); font-size: 14px; font-weight: 700;
+    letter-spacing: 2px; text-transform: uppercase; cursor: pointer;
+  }
+  .edit-save-btn.primary { background: var(--accent); color: #000; }
+  .edit-save-btn.primary:active { opacity: 0.85; }
+  .edit-save-btn.secondary { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
+  #edit-sync-status {
+    font-family: var(--font-mono); font-size: 11px; text-align: center;
+    padding: 8px 14px; margin: 0 20px 10px; border-radius: 6px; display: none;
+  }
+  #edit-sync-status.ok  { color: var(--green); background: rgba(57,217,138,0.08); display:block; }
+  #edit-sync-status.err { color: var(--red);   background: rgba(255,77,77,0.08);  display:block; }
+  #edit-sync-status.pending { color: var(--muted); background: rgba(107,114,128,0.08); display:block; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- NAV -->
+  <nav>
+    <button class="nav-btn active" onclick="showScreen('log')" id="nav-log">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z"/><path d="M12 6v6l4 2"/></svg>
+      Log
+    </button>
+    <button class="nav-btn" onclick="showScreen('dash')" id="nav-dash">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      Dashboard
+    </button>
+    <button class="nav-btn" onclick="showScreen('history')" id="nav-history">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v10l4 4"/><circle cx="12" cy="12" r="10"/></svg>
+      History
+    </button>
+    <button class="nav-btn" onclick="showScreen('settings')" id="nav-settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+      Settings
+    </button>
+  </nav>
+
+  <!-- LOG SCREEN -->
+  <div class="screen active" id="screen-log">
+    <div class="screen-header">
+      <div class="screen-title">⛽ Gas Up</div>
+      <div class="screen-sub" id="log-date-display">— / — / —</div>
+    </div>
+    <div class="log-body">
+
+      <div class="location-field" onclick="detectLocation()" id="loc-field">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 1 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+        <div class="location-text">
+          <div class="location-label">Station / Location</div>
+          <div class="location-value detecting" id="loc-display">Tap to detect</div>
+          <div id="loc-franchise" style="font-size:11px;color:var(--accent);font-family:var(--font-display);letter-spacing:1px;margin-top:2px;display:none"></div>
+        </div>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--muted)"><path d="M9 18l6-6-6-6"/></svg>
+      </div>
+
+      <div class="date-field">
+        <div class="field-label">Date</div>
+        <input type="date" id="field-date" />
+      </div>
+
+      <div class="field-group">
+        <div class="field-label">Odometer Reading</div>
+        <input class="field-input" type="number" id="field-odo" placeholder="51367" inputmode="numeric" pattern="[0-9]*" oninput="updateDerived()">
+      </div>
+
+      <div class="field-row">
+        <div class="field-group">
+          <div class="field-label">Gallons</div>
+          <input class="field-input" type="number" id="field-gal" placeholder="0.000" step="0.001" inputmode="decimal" oninput="updateDerived()">
+        </div>
+        <div class="field-group">
+          <div class="field-label">Total Price ($)</div>
+          <input class="field-input" type="number" id="field-price" placeholder="0.00" step="0.01" inputmode="decimal" oninput="updateDerived()">
+        </div>
+      </div>
+
+      <div class="derived-box" id="mpg-box" style="display:none">
+        <div>
+          <div class="derived-label">Est. MPG</div>
+          <div style="font-size:11px;color:var(--muted);font-family:var(--font-mono);margin-top:2px">Based on last fill-up</div>
+        </div>
+        <div>
+          <span class="derived-value" id="derived-mpg">—</span>
+          <span class="derived-unit">mpg</span>
+        </div>
+      </div>
+
+      <div class="derived-box" id="cpg-box" style="display:none">
+        <div>
+          <div class="derived-label" style="color:var(--muted)">Cost / Gallon</div>
+        </div>
+        <div>
+          <span class="derived-value" id="derived-cpg" style="color:var(--text);font-size:22px">—</span>
+          <span class="derived-unit">$/gal</span>
+        </div>
+      </div>
+
+      <button class="submit-btn" id="submit-btn" onclick="submitFillUp()">LOG FILL-UP</button>
+
+      <div class="sync-status pending" id="sync-status" style="display:none"></div>
+    </div>
+  </div>
+
+  <!-- DASHBOARD SCREEN -->
+  <div class="screen" id="screen-dash">
+    <div class="screen-header">
+      <div class="screen-title">Dashboard</div>
+      <div class="screen-sub" id="dash-sub">Fuel Economy Overview</div>
+    </div>
+    <div class="dash-body" id="dash-body">
+      <div class="empty-state">
+        <div class="icon">📊</div>
+        <p>Log your first fill-up to see insights</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- HISTORY SCREEN -->
+  <div class="screen" id="screen-history">
+    <div class="screen-header">
+      <div class="screen-title">History</div>
+      <div class="screen-sub" id="history-sub">All fill-ups</div>
+    </div>
+    <div class="history-body" id="history-body">
+      <div class="empty-state">
+        <div class="icon">🗂️</div>
+        <p>No fill-ups logged yet</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- SETTINGS SCREEN -->
+  <div class="screen" id="screen-settings">
+    <div class="screen-header">
+      <div class="screen-title">Settings</div>
+      <div class="screen-sub">Google Sheets Sync</div>
+    </div>
+    <div class="settings-body">
+      <div class="settings-section-title">Google Sheets API</div>
+
+      <div class="settings-field">
+        <label>Spreadsheet ID</label>
+        <input type="text" id="setting-sheet-id" placeholder="Paste your Sheet ID here" />
+      </div>
+
+      <div class="settings-field">
+        <label>API Key</label>
+        <input type="password" id="setting-api-key" placeholder="Google API Key (with Sheets scope)" />
+      </div>
+
+      <div class="settings-field">
+        <label>Sheet Tab Name</label>
+        <input type="text" id="setting-tab-name" placeholder="e.g. Sheet1 or FuelLog" />
+      </div>
+
+      <button class="save-settings-btn" onclick="saveSettings()">SAVE SETTINGS</button>
+
+      <button class="save-settings-btn" onclick="testConnection()" style="border-color:rgba(245,166,35,0.3);color:var(--accent)">TEST CONNECTION</button>
+
+      <div class="settings-section-title" style="margin-top:8px">About</div>
+      <div style="font-size:12px;color:var(--muted);line-height:1.6;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;">
+        <strong style="color:var(--text);font-family:var(--font-display);letter-spacing:1px;">HOW TO SET UP SHEETS SYNC</strong><br><br>
+        1. Open your Google Sheet<br>
+        2. Copy the ID from the URL (the long string between /d/ and /edit)<br>
+        3. Create a Google Cloud project, enable Sheets API, create an API key<br>
+        4. Paste both above and save<br><br>
+        The app writes only raw input columns (C–G):<br>
+        <span style="color:var(--accent);font-family:var(--font-mono);font-size:11px;">C: Date · D: Where · E: Odometer · F: Gallons · G: Total Paid</span><br><br>
+        Columns A (Year), B (Year-Month), and H+ formula columns are left untouched.
+      </div>
+
+      <div class="settings-section-title">Data Management</div>
+      <button class="save-settings-btn" onclick="exportCSV()" style="color:var(--green);border-color:rgba(57,217,138,0.3)">EXPORT CSV</button>
+      <button class="save-settings-btn" onclick="clearData()" style="color:var(--red);border-color:rgba(255,77,77,0.2)">CLEAR LOCAL DATA</button>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- EDIT OVERLAY -->
+<div id="edit-overlay">
+  <div id="edit-backdrop" onclick="closeEditPanel()"></div>
+  <div id="edit-sheet">
+    <div id="edit-sheet-header">
+      <div id="edit-sheet-title">Edit Fill-Up</div>
+      <button id="edit-close-btn" onclick="closeEditPanel()">✕</button>
+    </div>
+    <div id="edit-sheet-body">
+      <div class="edit-field">
+        <label>Date</label>
+        <input type="date" id="edit-date" />
+      </div>
+      <div class="edit-field">
+        <label>Station / Where</label>
+        <input type="text" id="edit-location" placeholder="e.g. Wawa" />
+      </div>
+      <div class="edit-field">
+        <label>Odometer (mi)</label>
+        <input type="number" id="edit-odo" inputmode="numeric" pattern="[0-9]*" />
+      </div>
+      <div class="edit-field">
+        <label>Gallons</label>
+        <input type="number" id="edit-gal" step="0.001" inputmode="decimal" />
+      </div>
+      <div class="edit-field">
+        <label>Total Price ($)</label>
+        <input type="number" id="edit-price" step="0.01" inputmode="decimal" />
+      </div>
+    </div>
+    <div id="edit-sync-status"></div>
+    <div id="edit-sheet-actions">
+      <button class="edit-save-btn secondary" onclick="closeEditPanel()">Cancel</button>
+      <button class="edit-save-btn primary" onclick="saveEdit()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- DELETE CONFIRM -->
+<div id="delete-confirm-overlay">
+  <div id="delete-confirm-backdrop" onclick="cancelDelete()"></div>
+  <div id="delete-confirm-sheet">
+    <div id="delete-confirm-icon">🗑️</div>
+    <div id="delete-confirm-msg">Delete this fill-up?</div>
+    <div id="delete-confirm-actions">
+      <button class="del-btn cancel" onclick="cancelDelete()">Cancel</button>
+      <button class="del-btn confirm" onclick="executeDelete()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── STATE ──
+let fillUps = JSON.parse(localStorage.getItem('gasup_data') || '[]');
+let locationData = null;
+
+// ── CHART REGISTRY (replaces Chart.instances approach) ──
+const chartRegistry = {};
+function destroyCharts() {
+  Object.keys(chartRegistry).forEach(k => {
+    try { chartRegistry[k].destroy(); } catch(e) {}
+    delete chartRegistry[k];
+  });
+}
+function registerChart(id, instance) {
+  if (chartRegistry[id]) { try { chartRegistry[id].destroy(); } catch(e) {} }
+  chartRegistry[id] = instance;
+}
+
+// ── DATE NORMALIZER ──
+// Sheet stores dates as M/D/YYYY — normalize everything to YYYY-MM-DD
+function normalizeDate(raw) {
+  if (!raw) return '';
+  const s = raw.toString().trim();
+  // Already ISO format
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  // M/D/YYYY or MM/DD/YYYY
+  const parts = s.split('/');
+  if (parts.length === 3) {
+    const [m, d, y] = parts;
+    return `${y.padStart(4,'0')}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
+  }
+  return s;
+}
+
+// ── SHEET DATA CACHE (5 min TTL) ──
+let _sheetCache = { data: [], ts: 0 };
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+function isCacheValid() { return _sheetCache.ts > 0 && (Date.now() - _sheetCache.ts) < CACHE_TTL; }
+function invalidateCache() { _sheetCache.ts = 0; }
+
+// ── MEMOIZED getAllData ──
+let _allDataCache = null;
+function invalidateAllData() { _allDataCache = null; }
+
+// ── INPUT HELPERS ──
+// Style active input field
+document.addEventListener('focusin', e => {
+  if (e.target.classList.contains('field-input') && e.target.tagName === 'INPUT') {
+    e.target.closest('.field-group').style.borderColor = 'var(--accent)';
+  }
+});
+document.addEventListener('focusout', e => {
+  if (e.target.classList.contains('field-input') && e.target.tagName === 'INPUT') {
+    e.target.closest('.field-group').style.borderColor = '';
+    // On blur, format to correct decimal places
+    if (e.target.id === 'field-gal' && e.target.value) {
+      e.target.value = parseFloat(e.target.value).toFixed(3);
+    }
+    if (e.target.id === 'field-price' && e.target.value) {
+      e.target.value = parseFloat(e.target.value).toFixed(2);
+    }
+    if (e.target.id === 'field-odo' && e.target.value) {
+      e.target.value = Math.round(parseFloat(e.target.value));
+    }
+  }
+});
+
+// ── INIT ──
+document.addEventListener('DOMContentLoaded', () => {
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('field-date').value = today;
+  document.getElementById('log-date-display').textContent = formatDateDisplay(today);
+  document.getElementById('field-date').addEventListener('change', e => {
+    document.getElementById('log-date-display').textContent = formatDateDisplay(e.target.value);
+  });
+  loadSettings();
+  autoDetectLocation();
+});
+
+function formatDateDisplay(dateStr) {
+  if (!dateStr) return '— / — / —';
+  const d = new Date(dateStr + 'T12:00:00');
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+// ── NAVIGATION ──
+async function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+  document.getElementById('nav-' + name).classList.add('active');
+  if (name === 'dash' || name === 'history') {
+    if (!isCacheValid()) {
+      // Show spinner only on first load or stale cache
+      if (name === 'dash') document.getElementById('dash-body').innerHTML = `<div class="empty-state"><div class="icon" style="animation:spin 1s linear infinite">⏳</div><p>Loading sheet data…</p></div>`;
+      if (name === 'history') document.getElementById('history-body').innerHTML = `<div class="empty-state"><div class="icon" style="animation:spin 1s linear infinite">⏳</div><p>Loading…</p></div>`;
+      const loaded = await loadSheetData();
+      _sheetCache = { data: loaded, ts: Date.now() };
+      sheetData = loaded;
+      invalidateAllData();
+    } else {
+      sheetData = _sheetCache.data;
+    }
+    if (name === 'dash') renderDashboard();
+    if (name === 'history') renderHistory();
+  }
+}
+
+// ── FRANCHISE DETECTION ──
+const FRANCHISE_KEYWORDS = {
+  'wawa': 'Wawa',
+  'exxon': 'Exxon Mobil',
+  'mobil': 'Exxon Mobil',
+  'raceway': 'Raceway',
+  'sunoco': 'Sunoco',
+  'citgo': 'Citgo',
+  'gulf': 'Gulf',
+  'shell': 'Shell',
+  'lukoil': 'LukOil',
+  'luk oil': 'LukOil',
+  'fuel 1': 'Fuel1',
+  'fuel1': 'Fuel1',
+  'fuel 4': 'Fuel4',
+  'fuel4': 'Fuel4',
+  'speedway': 'Speedway',
+  'delta': 'Delta',
+  'quikchek': 'Quikcheck',
+  'quikcheck': 'Quikcheck',
+  'bp ': 'BP',
+  'british petroleum': 'BP',
+  'triclean': 'TriClean',
+  'tri-clean': 'TriClean',
+  'gasland': 'Gasland Union',
+  'chevron': 'Chevron',
+  'valero': 'Valero',
+  '7-eleven': '7-Eleven',
+  'seven eleven': '7-Eleven',
+  'costco': 'Costco',
+  'bjs': "BJ's",
+  "bj's": "BJ's"
+};
+
+function detectFranchise(name) {
+  if (!name) return null;
+  const lower = name.toLowerCase();
+  for (const [keyword, franchise] of Object.entries(FRANCHISE_KEYWORDS)) {
+    if (lower.includes(keyword)) return franchise;
+  }
+  return null;
+}
+
+// ── LOCATION ──
+function autoDetectLocation() {
+  if (navigator.geolocation) detectLocation();
+}
+
+async function detectLocation() {
+  const el = document.getElementById('loc-display');
+  const franchiseEl = document.getElementById('loc-franchise');
+  el.textContent = 'Detecting…';
+  el.className = 'location-value detecting';
+  franchiseEl.style.display = 'none';
+
+  navigator.geolocation.getCurrentPosition(
+    async pos => {
+      const { latitude, longitude } = pos.coords;
+      try {
+        // Step 1: reverse geocode for nearby places using Nominatim
+        const r = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&zoom=18&addressdetails=1`);
+        const d = await r.json();
+
+        // Try to get the actual business/POI name first
+        const poiName = d.name || d.namedetails?.name || null;
+        const addr = d.address;
+        const streetLabel = addr.road
+          ? `${addr.road}${addr.city ? ', ' + addr.city : (addr.town ? ', ' + addr.town : '')}`
+          : (addr.city || addr.town || addr.village || `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
+
+        // Step 2: Try Overpass API to find actual gas station name nearby
+        const overpassUrl = `https://overpass-api.de/api/interpreter?data=[out:json];node["amenity"="fuel"](around:80,${latitude},${longitude});out;`;
+        let stationName = null;
+        let franchiseName = null;
+
+        try {
+          const or = await fetch(overpassUrl);
+          const od = await or.json();
+          if (od.elements && od.elements.length > 0) {
+            const station = od.elements[0];
+            stationName = station.tags?.name || station.tags?.brand || station.tags?.operator || null;
+            franchiseName = detectFranchise(stationName) || detectFranchise(station.tags?.brand) || detectFranchise(station.tags?.operator);
+          }
+        } catch { /* overpass failed, fall through */ }
+
+        // If no OSM station found, try detecting franchise from Nominatim POI name
+        if (!franchiseName && poiName) {
+          franchiseName = detectFranchise(poiName);
+        }
+
+        // Build display label
+        const displayName = stationName || poiName || streetLabel;
+        const shortAddr = addr.road ? `${addr.road}${addr.city ? ', ' + addr.city : (addr.town ? ', ' + addr.town : '')}` : streetLabel;
+
+        locationData = {
+          label: franchiseName || displayName, // what gets written to sheet (franchise name preferred)
+          fullName: displayName,
+          franchise: franchiseName,
+          address: shortAddr,
+          lat: latitude,
+          lon: longitude
+        };
+
+        el.textContent = displayName;
+        el.className = 'location-value';
+
+        if (franchiseName) {
+          franchiseEl.textContent = '✓ Matched: ' + franchiseName;
+          franchiseEl.style.display = 'block';
+        } else {
+          franchiseEl.textContent = 'No franchise match — will log as-is';
+          franchiseEl.style.color = 'var(--muted)';
+          franchiseEl.style.display = 'block';
+        }
+
+      } catch {
+        locationData = { label: `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`, lat: latitude, lon: longitude };
+        el.textContent = locationData.label;
+        el.className = 'location-value';
+      }
+    },
+    () => {
+      el.textContent = 'Location unavailable — tap to retry';
+      el.className = 'location-value detecting';
+    },
+    { enableHighAccuracy: true, timeout: 12000 }
+  );
+}
+
+// ── DERIVED CALCS ──
+function updateDerived() {
+  const gal = parseFloat(document.getElementById('field-gal').value);
+  const price = parseFloat(document.getElementById('field-price').value);
+  const odo = parseFloat(document.getElementById('field-odo').value);
+
+  // cost per gallon
+  if (gal > 0 && price > 0) {
+    const cpg = (price / gal).toFixed(3);
+    document.getElementById('derived-cpg').textContent = cpg;
+    document.getElementById('cpg-box').style.display = 'flex';
+  } else {
+    document.getElementById('cpg-box').style.display = 'none';
+  }
+
+  // MPG from last fill-up
+  if (fillUps.length > 0 && odo > 0 && gal > 0) {
+    const last = fillUps[fillUps.length - 1];
+    const miles = odo - last.odometer;
+    if (miles > 0) {
+      const mpg = (miles / gal).toFixed(1);
+      document.getElementById('derived-mpg').textContent = mpg;
+      document.getElementById('mpg-box').style.display = 'flex';
+    }
+  }
+}
+
+// ── SUBMIT ──
+async function submitFillUp() {
+  const date = document.getElementById('field-date').value;
+  const odo = parseFloat(document.getElementById('field-odo').value);
+  const gal = parseFloat(document.getElementById('field-gal').value);
+  const price = parseFloat(document.getElementById('field-price').value);
+
+  if (!date || !odo || !gal || !price) {
+    showToast('Fill in all fields', 'error'); return;
+  }
+
+  const cpg = price / gal;
+  let mpg = null;
+  if (fillUps.length > 0) {
+    const last = fillUps[fillUps.length - 1];
+    const miles = odo - last.odometer;
+    if (miles > 0) mpg = miles / gal;
+  }
+
+  const entry = {
+    id: Date.now(),
+    date,
+    odometer: odo,
+    gallons: gal,
+    totalPrice: price,
+    cpg,
+    mpg,
+    location: locationData ? (locationData.franchise || locationData.fullName || locationData.label) : 'Unknown',
+    locationFull: locationData ? locationData.fullName : null,
+    locationAddress: locationData ? locationData.address : null
+  };
+
+  fillUps.push(entry);
+  localStorage.setItem('gasup_data', JSON.stringify(fillUps));
+  invalidateAllData();
+
+  // reset form
+  document.getElementById('field-odo').value = '';
+  document.getElementById('field-gal').value = '';
+  document.getElementById('field-price').value = '';
+  document.getElementById('mpg-box').style.display = 'none';
+  document.getElementById('cpg-box').style.display = 'none';
+  // reset location for next fill-up
+  locationData = null;
+  const locEl = document.getElementById('loc-display');
+  if (locEl) { locEl.textContent = 'Tap to detect'; locEl.className = 'location-value detecting'; }
+  const frEl = document.getElementById('loc-franchise');
+  if (frEl) { frEl.style.display = 'none'; }
+
+  showToast('Fill-up logged!', 'success');
+
+  // try sheets sync
+  await syncToSheets(entry);
+}
+
+// ── SHEETS SYNC ──
+function getSettings() {
+  return {
+    sheetId: localStorage.getItem('gasup_sheet_id') || '',
+    apiKey: localStorage.getItem('gasup_api_key') || '',
+    tabName: localStorage.getItem('gasup_tab_name') || 'Sheet1'
+  };
+}
+
+async function syncToSheets(entry) {
+  const { sheetId, apiKey, tabName } = getSettings();
+  if (!sheetId || !apiKey) return;
+
+  const statusEl = document.getElementById('sync-status');
+  statusEl.style.display = 'block';
+  statusEl.className = 'sync-status pending';
+  statusEl.textContent = 'Syncing to Google Sheets…';
+
+  // Only write raw input columns C–G: Date, Where, Odometer, Gallons, Total Paid
+  // Columns A (Year) and B (Year-Month) are formulas — skip them
+  // Columns H+ (Price/Gallon, Miles since Last, MPG, etc.) are formulas — skip them
+  // We append to column C onward using C:G range
+  const row = [
+    entry.date,           // C — Date
+    entry.location,       // D — Where
+    entry.odometer,       // E — Odometer (mi)
+    entry.gallons.toFixed(3), // F — Gallons
+    entry.totalPrice.toFixed(2) // G — Total Paid ($)
+  ];
+
+  // Append to C:G so we don't touch formula columns A & B
+  const range = `${encodeURIComponent(tabName)}!C:G`;
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS&key=${apiKey}`;
+
+  try {
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ values: [row] })
+    });
+    if (r.ok) {
+      statusEl.className = 'sync-status ok';
+      statusEl.textContent = '✓ Synced to Raw Data Input';
+      setTimeout(() => { statusEl.style.display = 'none'; }, 3000);
+    } else {
+      const errText = await r.text();
+      throw new Error(errText);
+    }
+  } catch (e) {
+    statusEl.className = 'sync-status err';
+    statusEl.textContent = '✗ Sync failed — saved locally';
+    setTimeout(() => { statusEl.style.display = 'none'; }, 4000);
+  }
+}
+
+async function testConnection() {
+  const { sheetId, apiKey } = getSettings();
+  if (!sheetId || !apiKey) { showToast('Enter Sheet ID and API Key first', 'error'); return; }
+  showToast('Testing connection…', '');
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}?key=${apiKey}&fields=properties.title`;
+  try {
+    const r = await fetch(url, { mode: 'cors' });
+    const text = await r.text();
+    let d;
+    try { d = JSON.parse(text); } catch { throw new Error('Bad response'); }
+    if (r.ok && d.properties) {
+      showToast('✓ Connected: ' + d.properties.title, 'success');
+    } else if (d.error) {
+      const msg = d.error.message || 'API error';
+      showToast('Error: ' + msg, 'error');
+    } else {
+      showToast('Connection failed', 'error');
+    }
+  } catch(e) {
+    showToast('Failed: ' + (e.message || 'Check key & Sheet ID'), 'error');
+  }
+}
+
+// ── SETTINGS ──
+function saveSettings() {
+  localStorage.setItem('gasup_sheet_id', document.getElementById('setting-sheet-id').value.trim());
+  localStorage.setItem('gasup_api_key', document.getElementById('setting-api-key').value.trim());
+  localStorage.setItem('gasup_tab_name', document.getElementById('setting-tab-name').value.trim() || 'Sheet1');
+  showToast('Settings saved', 'success');
+}
+
+function loadSettings() {
+  document.getElementById('setting-sheet-id').value = localStorage.getItem('gasup_sheet_id') || '';
+  document.getElementById('setting-api-key').value = localStorage.getItem('gasup_api_key') || '';
+  document.getElementById('setting-tab-name').value = localStorage.getItem('gasup_tab_name') || '';
+}
+
+// ── SHEET DATA LOADER ──
+let sheetData = [];
+
+async function loadSheetData() {
+  const { sheetId, apiKey, tabName } = getSettings();
+  if (!sheetId || !apiKey) return [];
+  try {
+    const range = encodeURIComponent(tabName) + '!A:G';
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}?key=${apiKey}`;
+    const r = await fetch(url);
+    if (!r.ok) return [];
+    const d = await r.json();
+    const rows = (d.values || []).slice(1); // skip header row
+    return rows.map((row, i) => {
+      // Sheet columns: A=Year, B=Year-Month, C=Date, D=Where, E=Odometer, F=Gallons, G=Total Paid
+      const date = normalizeDate(row[2]); // normalize M/D/YYYY → YYYY-MM-DD
+      const location = (row[3] || '').trim();
+      const odometer = parseFloat(row[4]) || 0;
+      const gallons = parseFloat(row[5]) || 0;
+      const totalPrice = parseFloat(row[6]) || 0;
+      if (!date || !odometer || !gallons) return null;
+      const cpg = gallons > 0 ? totalPrice / gallons : 0;
+      return {
+        id: 900000 + i,
+        date,           // always ISO YYYY-MM-DD
+        rawDate: (row[2] || '').trim(), // preserve original for sheet matching
+        location,
+        odometer,
+        gallons,
+        totalPrice,
+        cpg,
+        mpg: null,
+        _source: 'sheet'
+      };
+    }).filter(Boolean);
+  } catch { return []; }
+}
+
+// Merge local fillUps + sheet data, deduplicate by date+odometer, calc MPG
+// Memoized — call invalidateAllData() when source data changes
+function getAllData() {
+  if (_allDataCache) return _allDataCache;
+  const local = fillUps.map(f => ({ ...f, _source: f._source || 'local' }));
+  const localKeys = new Set(local.map(f => f.date + '|' + f.odometer));
+  const sheetOnly = sheetData.filter(f => !localKeys.has(f.date + '|' + f.odometer));
+  const combined = [...local, ...sheetOnly].sort((a,b) => new Date(a.date) - new Date(b.date));
+  for (let i = 1; i < combined.length; i++) {
+    const miles = combined[i].odometer - combined[i-1].odometer;
+    if (miles > 0 && combined[i].gallons > 0) {
+      combined[i].mpg = miles / combined[i].gallons;
+    }
+  }
+  _allDataCache = combined;
+  return combined;
+}
+
+// ── DASHBOARD ──
+function renderDashboard() {
+  const body = document.getElementById('dash-body');
+
+  const all = getAllData();
+  if (all.length === 0) {
+    body.innerHTML = `<div class="empty-state"><div class="icon">📊</div><p>No data yet — log a fill-up or connect your sheet in Settings</p></div>`;
+    return;
+  }
+
+  const now = new Date();
+  const withMpg = all.filter(f => f.mpg && f.mpg > 5 && f.mpg < 100);
+  const avgMpg = withMpg.length ? withMpg.reduce((a,b) => a + b.mpg, 0) / withMpg.length : null;
+  const lastMpg = withMpg.length ? withMpg[withMpg.length - 1].mpg : null;
+  const prevMpg = withMpg.length > 1 ? withMpg[withMpg.length - 2].mpg : null;
+
+  const totalSpend = all.reduce((a,b) => a + b.totalPrice, 0);
+  const totalGal   = all.reduce((a,b) => a + b.gallons, 0);
+  const avgCpg = totalGal > 0 ? totalSpend / totalGal : 0;
+  const cpm = avgMpg && avgCpg ? avgCpg / avgMpg : null;
+
+  const thisMonthSpend = all
+    .filter(f => { const d = new Date(f.date + 'T12:00:00'); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); })
+    .reduce((a,b) => a + b.totalPrice, 0);
+
+  const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const lastMonthSpend = all
+    .filter(f => { const d = new Date(f.date + 'T12:00:00'); return d.getMonth() === lastMonthDate.getMonth() && d.getFullYear() === lastMonthDate.getFullYear(); })
+    .reduce((a,b) => a + b.totalPrice, 0);
+
+  const odos = all.map(f => f.odometer).filter(Boolean).sort((a,b) => a-b);
+  const totalMiles = odos.length > 1 ? odos[odos.length-1] - odos[0] : 0;
+
+  // MPG delta
+  let mpgDelta = '', mpgDeltaClass = 'neutral';
+  if (lastMpg && prevMpg) {
+    const diff = lastMpg - prevMpg;
+    mpgDelta = (diff >= 0 ? '▲ ' : '▼ ') + Math.abs(diff).toFixed(1) + ' vs prev';
+    mpgDeltaClass = diff >= 0 ? 'up' : 'down';
+  }
+
+  // Spend delta vs last month
+  let spendDelta = '', spendDeltaClass = 'neutral';
+  if (lastMonthSpend > 0) {
+    const diff = thisMonthSpend - lastMonthSpend;
+    spendDelta = (diff >= 0 ? '▲ $' : '▼ $') + Math.abs(diff).toFixed(0) + ' vs last mo';
+    spendDeltaClass = diff > 0 ? 'down' : 'up';
+  }
+
+  // Monthly aggregates (all time, sorted chronologically)
+  const monthMap = {};
+  all.forEach(f => {
+    const d = new Date(f.date + 'T12:00:00');
+    const sortKey = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+    const label = d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+    if (!monthMap[sortKey]) monthMap[sortKey] = { label, spend: 0, cpgs: [], mpgs: [] };
+    monthMap[sortKey].spend += f.totalPrice;
+    monthMap[sortKey].cpgs.push(f.cpg);
+    if (f.mpg && f.mpg > 5 && f.mpg < 100) monthMap[sortKey].mpgs.push(f.mpg);
+  });
+  const sortedKeys = Object.keys(monthMap).sort();
+  const allMonthLabels = sortedKeys.map(k => monthMap[k].label);
+  const allSpendData   = sortedKeys.map(k => +monthMap[k].spend.toFixed(2));
+  const allCpgData     = sortedKeys.map(k => +(monthMap[k].cpgs.reduce((a,b)=>a+b,0)/monthMap[k].cpgs.length).toFixed(3));
+  const allMpgData     = sortedKeys.map(k => monthMap[k].mpgs.length ? +(monthMap[k].mpgs.reduce((a,b)=>a+b,0)/monthMap[k].mpgs.length).toFixed(1) : null);
+
+  // Yearly breakdown
+  const yearMap = {};
+  all.forEach(f => {
+    const yr = new Date(f.date + 'T12:00:00').getFullYear();
+    if (!yearMap[yr]) yearMap[yr] = { spend: 0, gal: 0, count: 0, mpgs: [] };
+    yearMap[yr].spend += f.totalPrice;
+    yearMap[yr].gal   += f.gallons;
+    yearMap[yr].count++;
+    if (f.mpg && f.mpg > 5 && f.mpg < 100) yearMap[yr].mpgs.push(f.mpg);
+  });
+
+  const yearRows = Object.entries(yearMap).sort((a,b) => b[0]-a[0]).map(([yr, d]) => {
+    const yAvgCpg = d.gal > 0 ? d.spend / d.gal : 0;
+    const yAvgMpg = d.mpgs.length ? d.mpgs.reduce((a,b)=>a+b,0)/d.mpgs.length : null;
+    return `<tr style="border-bottom:1px solid var(--border)">
+      <td style="font-family:var(--font-mono);color:var(--accent);padding:7px 4px">${yr}</td>
+      <td style="font-family:var(--font-mono);padding:7px 4px">${d.count}</td>
+      <td style="font-family:var(--font-mono);padding:7px 4px">$${d.spend.toFixed(0)}</td>
+      <td style="font-family:var(--font-mono);padding:7px 4px">$${yAvgCpg.toFixed(3)}</td>
+      <td style="font-family:var(--font-mono);padding:7px 4px">${yAvgMpg ? yAvgMpg.toFixed(1) : '—'}</td>
+    </tr>`;
+  }).join('');
+
+  // Best/worst
+  const bestMpgFill  = withMpg.length ? withMpg.reduce((a,b) => b.mpg > a.mpg ? b : a) : null;
+  const worstMpgFill = withMpg.length ? withMpg.reduce((a,b) => b.mpg < a.mpg ? b : a) : null;
+  const priced = all.filter(f => f.cpg > 0);
+  const bestCpgFill  = priced.length ? priced.reduce((a,b) => b.cpg < a.cpg ? b : a) : null;
+  const worstCpgFill = priced.length ? priced.reduce((a,b) => b.cpg > a.cpg ? b : a) : null;
+
+  // Station analysis
+  const stationMap = {};
+  all.forEach(f => {
+    const s = f.location || 'Unknown';
+    if (!stationMap[s]) stationMap[s] = { count: 0, cpgs: [], spend: 0, mpgs: [] };
+    stationMap[s].count++;
+    stationMap[s].cpgs.push(f.cpg);
+    stationMap[s].spend += f.totalPrice;
+    if (f.mpg && f.mpg > 5 && f.mpg < 100) stationMap[s].mpgs.push(f.mpg);
+  });
+  const stationList = Object.entries(stationMap).map(([name, d]) => ({
+    name, count: d.count,
+    avgCpg: d.cpgs.reduce((a,b)=>a+b,0)/d.cpgs.length,
+    totalSpend: d.spend,
+    avgMpg: d.mpgs.length ? d.mpgs.reduce((a,b)=>a+b,0)/d.mpgs.length : null
+  }));
+  const topStation      = stationList.sort((a,b)=>b.count-a.count)[0];
+  const cheapestStation = stationList.slice().sort((a,b)=>a.avgCpg-b.avgCpg)[0];
+  const mostSpentStation= stationList.slice().sort((a,b)=>b.totalSpend-a.totalSpend)[0];
+  const mpgByStation    = stationList.filter(s=>s.avgMpg&&s.count>=3).sort((a,b)=>b.avgMpg-a.avgMpg);
+
+  // 12-month spend estimate
+  const twelveAgo = new Date(now.getFullYear(), now.getMonth()-11, 1);
+  const annualEst = all.filter(f => new Date(f.date+'T12:00:00') >= twelveAgo).reduce((a,b)=>a+b.totalPrice,0);
+
+  body.innerHTML = `
+    <div style="font-family:var(--font-mono);font-size:10px;color:var(--muted);text-align:center;padding:2px 0 6px">
+      ${all.length} fill-ups · ${all.filter(f=>f._source==='sheet').length} from sheet · ${all.filter(f=>f._source!=='sheet').length} local
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-card orange">
+        <div class="stat-label">Avg MPG</div>
+        <div class="stat-value">${avgMpg ? avgMpg.toFixed(1) : '—'}<span class="stat-unit">mpg</span></div>
+        <div class="stat-delta ${mpgDeltaClass}">${mpgDelta || (lastMpg ? 'Last: ' + lastMpg.toFixed(1) + ' mpg' : '—')}</div>
+      </div>
+      <div class="stat-card red">
+        <div class="stat-label">Avg $/Gal</div>
+        <div class="stat-value">$${avgCpg.toFixed(3)}</div>
+        <div class="stat-delta neutral">${all.length} fill-ups</div>
+      </div>
+      <div class="stat-card green">
+        <div class="stat-label">This Month</div>
+        <div class="stat-value">$${thisMonthSpend.toFixed(0)}</div>
+        <div class="stat-delta ${spendDeltaClass}">${spendDelta || 'fuel spend'}</div>
+      </div>
+      <div class="stat-card blue">
+        <div class="stat-label">Est. Annual</div>
+        <div class="stat-value">$${(annualEst/1000).toFixed(1)}<span class="stat-unit">k</span></div>
+        <div class="stat-delta neutral">last 12 months</div>
+      </div>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-card blue">
+        <div class="stat-label">Total Miles</div>
+        <div class="stat-value">${totalMiles.toLocaleString()}</div>
+        <div class="stat-delta neutral">tracked</div>
+      </div>
+      <div class="stat-card orange">
+        <div class="stat-label">Cost / Mile</div>
+        <div class="stat-value">${cpm ? '$'+cpm.toFixed(3) : '—'}</div>
+        <div class="stat-delta neutral">avg</div>
+      </div>
+      <div class="stat-card green">
+        <div class="stat-label">Total Gallons</div>
+        <div class="stat-value">${totalGal.toFixed(0)}</div>
+        <div class="stat-delta neutral">pumped</div>
+      </div>
+      <div class="stat-card red">
+        <div class="stat-label">Total Spend</div>
+        <div class="stat-value">$${(totalSpend/1000).toFixed(1)}<span class="stat-unit">k</span></div>
+        <div class="stat-delta neutral">lifetime</div>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-title">MPG Per Fill-Up — All Time</div>
+      <div class="chart-wrap"><canvas id="chart-mpg"></canvas></div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-title">Monthly Fuel Spend — All Time</div>
+      <div class="chart-wrap"><canvas id="chart-spend"></canvas></div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-title">Cost Per Gallon — All Time</div>
+      <div class="chart-wrap"><canvas id="chart-cpg"></canvas></div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-title">Yearly Summary</div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr style="color:var(--muted);font-family:var(--font-display);font-size:10px;letter-spacing:1px;text-transform:uppercase;border-bottom:1px solid var(--border)">
+          <th style="text-align:left;padding:4px 4px 8px">Year</th>
+          <th style="text-align:left;padding:4px 4px 8px">Fills</th>
+          <th style="text-align:left;padding:4px 4px 8px">Spend</th>
+          <th style="text-align:left;padding:4px 4px 8px">$/Gal</th>
+          <th style="text-align:left;padding:4px 4px 8px">MPG</th>
+        </tr></thead>
+        <tbody>${yearRows}</tbody>
+      </table>
+    </div>
+
+    ${bestMpgFill ? `
+    <div class="insight-card">
+      <div class="insight-icon green">🏆</div>
+      <div>
+        <div class="insight-title">MPG Record</div>
+        <div class="insight-body">Best ever: <strong>${bestMpgFill.mpg.toFixed(1)} mpg</strong> on ${formatDateDisplay(bestMpgFill.date)} at ${bestMpgFill.location}.${worstMpgFill ? ' Worst: <strong>' + worstMpgFill.mpg.toFixed(1) + ' mpg</strong> at ' + worstMpgFill.location + '.' : ''}</div>
+      </div>
+    </div>` : ''}
+
+    ${bestCpgFill ? `
+    <div class="insight-card">
+      <div class="insight-icon blue">💰</div>
+      <div>
+        <div class="insight-title">Best & Worst Price</div>
+        <div class="insight-body">Cheapest: <strong>$${bestCpgFill.cpg.toFixed(3)}/gal</strong> at ${bestCpgFill.location} on ${formatDateDisplay(bestCpgFill.date)}.${worstCpgFill ? ' Most expensive: <strong>$' + worstCpgFill.cpg.toFixed(3) + '/gal</strong> at ' + worstCpgFill.location + '.' : ''}</div>
+      </div>
+    </div>` : ''}
+
+    ${topStation ? `
+    <div class="insight-card">
+      <div class="insight-icon orange">⛽</div>
+      <div>
+        <div class="insight-title">Station Habits</div>
+        <div class="insight-body">Most visited: <strong>${topStation.name}</strong> (${topStation.count}x · $${mostSpentStation.totalSpend.toFixed(0)} total). Cheapest avg: <strong>${cheapestStation.name}</strong> at $${cheapestStation.avgCpg.toFixed(3)}/gal.</div>
+      </div>
+    </div>` : ''}
+
+    ${mpgByStation.length >= 2 ? `
+    <div class="insight-card">
+      <div class="insight-icon red">📈</div>
+      <div>
+        <div class="insight-title">MPG by Station</div>
+        <div class="insight-body">${mpgByStation.slice(0,4).map(s => `<strong>${s.name}</strong>: ${s.avgMpg.toFixed(1)} mpg`).join(' · ')}</div>
+      </div>
+    </div>` : ''}
+
+    ${cpm ? `
+    <div class="insight-card">
+      <div class="insight-icon red">🔮</div>
+      <div>
+        <div class="insight-title">Cost Per Mile</div>
+        <div class="insight-body">You're spending <strong>$${cpm.toFixed(3)} per mile</strong> driven. Over ${totalMiles.toLocaleString()} tracked miles that's <strong>$${(cpm * totalMiles).toFixed(0)}</strong> in fuel.</div>
+      </div>
+    </div>` : ''}
+  `;
+
+  setTimeout(() => {
+    // Destroy existing charts using registry
+    destroyCharts();
+
+    const chartDefaults = {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { color: '#232830' }, ticks: { color: '#6b7280', font: { family: 'Share Tech Mono', size: 9 }, maxTicksLimit: 14 } },
+        y: { grid: { color: '#232830' }, ticks: { color: '#6b7280', font: { family: 'Share Tech Mono', size: 10 } } }
+      }
+    };
+
+    // MPG per individual fill-up
+    registerChart('mpg', new Chart(document.getElementById('chart-mpg'), {
+      type: 'line',
+      data: {
+        labels: withMpg.map(f => f.date.slice(5)),
+        datasets: [{ data: withMpg.map(f => +f.mpg.toFixed(1)), borderColor: '#f5a623', backgroundColor: 'rgba(245,166,35,0.06)', tension: 0.3, pointRadius: 2, borderWidth: 2, spanGaps: true }]
+      },
+      options: { ...chartDefaults }
+    }));
+
+    registerChart('spend', new Chart(document.getElementById('chart-spend'), {
+      type: 'bar',
+      data: {
+        labels: allMonthLabels,
+        datasets: [{ data: allSpendData, backgroundColor: 'rgba(232,82,26,0.55)', borderColor: '#e8521a', borderWidth: 1, borderRadius: 3 }]
+      },
+      options: { ...chartDefaults }
+    });
+
+    registerChart('cpg', new Chart(document.getElementById('chart-cpg'), {
+      type: 'line',
+      data: {
+        labels: allMonthLabels,
+        datasets: [{ data: allCpgData, borderColor: '#4d9fff', backgroundColor: 'rgba(77,159,255,0.06)', tension: 0.4, pointRadius: 2, borderWidth: 2 }]
+      },
+      options: { ...chartDefaults }
+    }));
+  }, 80);
+}
+
+// ── HISTORY ──
+let expandedCardId = null;
+
+function renderHistory() {
+  const body = document.getElementById('history-body');
+  const sub = document.getElementById('history-sub');
+  const allData = getAllData();
+  if (allData.length === 0) {
+    body.innerHTML = `<div class="empty-state"><div class="icon">🗂️</div><p>No fill-ups logged yet</p></div>`;
+    return;
+  }
+  sub.textContent = `${allData.length} fill-up${allData.length !== 1 ? 's' : ''} · ${allData.filter(f=>f._source==='sheet').length} from sheet`;
+  const sorted = allData.slice().sort((a,b) => new Date(b.date) - new Date(a.date));
+  body.innerHTML = sorted.map(f => {
+    const d = new Date(f.date + 'T12:00:00');
+    const mon = d.toLocaleDateString('en-US', { month: 'short' }).toUpperCase();
+    const day = d.getDate();
+    const isExpanded = expandedCardId === f.id;
+    const isSheet = f._source === 'sheet';
+    return `
+    <div class="fill-card${isExpanded ? ' expanded' : ''}" data-id="${f.id}" data-toggle="${f.id}">
+      <div class="fill-card-row" style="display:flex;align-items:center;gap:14px;padding:2px 0">
+        <div class="fill-date-block">
+          <div class="fill-month">${mon}</div>
+          <div class="fill-day">${day}</div>
+        </div>
+        <div class="fill-divider"></div>
+        <div class="fill-details">
+          <div class="fill-mpg">${f.mpg ? f.mpg.toFixed(1) + ' mpg' : '— mpg'}${isSheet ? ' <span style="font-size:9px;color:var(--muted);font-family:var(--font-display);letter-spacing:1px">SHEET</span>' : ''}</div>
+          <div class="fill-meta">${f.gallons.toFixed(3)} gal · ${f.location}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div class="fill-cost">$${f.totalPrice.toFixed(2)}</div>
+          <div class="fill-cpg">$${f.cpg.toFixed(3)}/gal</div>
+        </div>
+        <span class="chevron${isExpanded ? ' open' : ''}">▶</span>
+      </div>
+      ${isExpanded ? `
+      <div class="fill-card-actions">
+        <button class="fill-action-btn edit" data-edit="${f.id}">✏&nbsp; Edit</button>
+        <button class="fill-action-btn delete" data-delete="${f.id}">✕&nbsp; Delete</button>
+      </div>` : ''}
+    </div>`;
+  }).join('');
+
+  // Attach delegated listeners after render
+  body.onclick = function(e) {
+    // Toggle
+    const toggleEl = e.target.closest('[data-toggle]');
+    if (toggleEl && !e.target.closest('[data-edit],[data-delete]')) {
+      const id = parseInt(toggleEl.dataset.toggle);
+      expandedCardId = expandedCardId === id ? null : id;
+      renderHistory();
+      return;
+    }
+    // Edit
+    const editEl = e.target.closest('[data-edit]');
+    if (editEl) {
+      e.stopPropagation();
+      openEditPanel(parseInt(editEl.dataset.edit));
+      return;
+    }
+    // Delete
+    const deleteEl = e.target.closest('[data-delete]');
+    if (deleteEl) {
+      e.stopPropagation();
+      confirmDelete(parseInt(deleteEl.dataset.delete));
+      return;
+    }
+  };
+}
+
+// ── EDIT PANEL ──
+let editingId = null;
+
+function openEditPanel(id) {
+  const f = getAllData().find(x => x.id === id);
+  if (!f) return;
+  editingId = id;
+  document.getElementById('edit-date').value = f.date;
+  document.getElementById('edit-location').value = f.location || '';
+  document.getElementById('edit-odo').value = f.odometer;
+  document.getElementById('edit-gal').value = f.gallons.toFixed(3);
+  document.getElementById('edit-price').value = f.totalPrice.toFixed(2);
+  document.getElementById('edit-sync-status').className = '';
+  document.getElementById('edit-sync-status').textContent = '';
+  document.getElementById('edit-overlay').classList.add('open');
+}
+
+function closeEditPanel() {
+  document.getElementById('edit-overlay').classList.remove('open');
+  editingId = null;
+}
+
+async function saveEdit() {
+  if (!editingId) return;
+  // Find in allData — could be local or sheet-sourced
+  const old = getAllData().find(x => x.id === editingId);
+  if (!old) return;
+  const idx = fillUps.findIndex(x => x.id === editingId);
+  const date = document.getElementById('edit-date').value;
+  const location = document.getElementById('edit-location').value.trim() || 'Unknown';
+  const odometer = parseFloat(document.getElementById('edit-odo').value);
+  const gallons = parseFloat(document.getElementById('edit-gal').value);
+  const totalPrice = parseFloat(document.getElementById('edit-price').value);
+
+  if (!date || isNaN(odometer) || isNaN(gallons) || isNaN(totalPrice)) {
+    showToast('Fill in all fields', 'error'); return;
+  }
+
+  const cpg = totalPrice / gallons;
+  // Recalculate MPG if there's a previous entry
+  let mpg = old.mpg;
+  const prevEntry = idx > 0 ? fillUps[idx - 1] : null;
+  if (prevEntry) {
+    const miles = odometer - prevEntry.odometer;
+    mpg = miles > 0 ? miles / gallons : null;
+  }
+
+  const updated = { ...old, date, location, odometer, gallons, totalPrice, cpg, mpg };
+  if (old._source === 'sheet') {
+    const si = sheetData.findIndex(x => x.id === editingId);
+    if (si !== -1) sheetData[si] = updated;
+    _sheetCache.data = sheetData; // keep cache in sync
+  } else {
+    fillUps[idx] = updated;
+    localStorage.setItem('gasup_data', JSON.stringify(fillUps));
+  }
+  invalidateAllData();
+
+  // Sync update to sheet
+  const statusEl = document.getElementById('edit-sync-status');
+  statusEl.className = 'pending';
+  statusEl.textContent = 'Updating sheet…';
+  const sheetResult = await updateRowInSheet(old, updated);
+  if (sheetResult === true) {
+    statusEl.className = 'ok';
+    statusEl.textContent = '✓ Sheet updated';
+    setTimeout(() => closeEditPanel(), 1200);
+  } else if (sheetResult === 'no-settings') {
+    statusEl.className = '';
+    statusEl.textContent = '';
+    closeEditPanel();
+  } else {
+    statusEl.className = 'err';
+    statusEl.textContent = '✗ Local saved, sheet update failed';
+    setTimeout(() => closeEditPanel(), 2000);
+  }
+
+  renderHistory();
+}
+
+function confirmDelete(id) {
+  // Show inline confirm UI — avoid browser confirm() which is blocked in PWA mode
+  pendingDeleteId = id;
+  const f = getAllData().find(x => x.id === id);
+  if (!f) return;
+  const d = new Date(f.date + 'T12:00:00');
+  const label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  document.getElementById('delete-confirm-msg').textContent = `Delete fill-up from ${label} at ${f.location}?`;
+  document.getElementById('delete-confirm-overlay').classList.add('open');
+}
+
+let pendingDeleteId = null;
+
+async function executeDelete() {
+  const id = pendingDeleteId;
+  pendingDeleteId = null;
+  document.getElementById('delete-confirm-overlay').classList.remove('open');
+
+  const f = getAllData().find(x => x.id === id);
+  if (!f) return;
+
+  // Remove locally (or from sheet cache)
+  if (f._source === 'sheet') {
+    sheetData = sheetData.filter(x => x.id !== id);
+    _sheetCache.data = sheetData;
+  } else {
+    fillUps = fillUps.filter(x => x.id !== id);
+    localStorage.setItem('gasup_data', JSON.stringify(fillUps));
+  }
+  invalidateAllData();
+  expandedCardId = null;
+  renderHistory();
+  showToast('Deleted locally', 'success');
+
+  // Sync delete to sheet
+  const result = await deleteRowInSheet(f);
+  if (result === true) showToast('✓ Row deleted from sheet', 'success');
+  else if (result !== 'no-settings') showToast('Saved locally — sheet sync failed', 'error');
+}
+
+function cancelDelete() {
+  pendingDeleteId = null;
+  document.getElementById('delete-confirm-overlay').classList.remove('open');
+}
+
+// ── SHEET ROW OPERATIONS ──
+// Strategy: fetch all values from C:G, find the matching row by date+odometer, then update/delete it
+
+async function findSheetRow(entry) {
+  const { sheetId, apiKey, tabName } = getSettings();
+  if (!sheetId || !apiKey) return null;
+
+  const range = encodeURIComponent(tabName) + '!C:G';
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}?key=${apiKey}`;
+  try {
+    const r = await fetch(url);
+    if (!r.ok) return null;
+    const d = await r.json();
+    const rows = d.values || [];
+    // rows[0] is header row, rows[1+] are data
+    // C=date (raw sheet format e.g. 8/16/2024), D=where, E=odometer
+    for (let i = 1; i < rows.length; i++) {
+      const rowDateRaw = (rows[i][0] || '').toString().trim();
+      const rowDateISO = normalizeDate(rowDateRaw);
+      const rowOdo = parseFloat(rows[i][2]) || 0;
+      // Match using both ISO-normalized date AND odometer
+      // entry.date is always ISO; entry.rawDate is original sheet format if from sheet
+      const entryISO = entry.date; // always ISO thanks to normalizeDate on load
+      if (rowDateISO === entryISO && Math.abs(rowOdo - entry.odometer) < 1) {
+        return i + 1; // 1-indexed sheet row number
+      }
+    }
+    return null;
+  } catch { return null; }
+}
+
+async function updateRowInSheet(oldEntry, newEntry) {
+  const { sheetId, apiKey, tabName } = getSettings();
+  if (!sheetId || !apiKey) return 'no-settings';
+
+  const rowNum = await findSheetRow(oldEntry);
+  if (!rowNum) return false;
+
+  const range = encodeURIComponent(tabName) + `!C${rowNum}:G${rowNum}`;
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}?valueInputOption=USER_ENTERED&key=${apiKey}`;
+  const row = [
+    newEntry.date,
+    newEntry.location,
+    newEntry.odometer,
+    newEntry.gallons.toFixed(3),
+    newEntry.totalPrice.toFixed(2)
+  ];
+  try {
+    const r = await fetch(url, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ values: [row] })
+    });
+    return r.ok ? true : false;
+  } catch { return false; }
+}
+
+async function deleteRowInSheet(entry) {
+  const { sheetId, apiKey, tabName } = getSettings();
+  if (!sheetId || !apiKey) return 'no-settings';
+
+  // First find the row number
+  const rowNum = await findSheetRow(entry);
+  if (!rowNum) return false;
+
+  // Need sheetId (numeric) for batchUpdate — get it from spreadsheet metadata
+  const metaUrl = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}?fields=sheets.properties&key=${apiKey}`;
+  try {
+    const mr = await fetch(metaUrl);
+    if (!mr.ok) return false;
+    const md = await mr.json();
+    const sheet = md.sheets.find(s => s.properties.title === tabName);
+    if (!sheet) return false;
+    const numericSheetId = sheet.properties.sheetId;
+
+    // Delete the row using batchUpdate
+    const batchUrl = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}:batchUpdate?key=${apiKey}`;
+    const body = {
+      requests: [{
+        deleteDimension: {
+          range: {
+            sheetId: numericSheetId,
+            dimension: 'ROWS',
+            startIndex: rowNum - 1,  // 0-indexed
+            endIndex: rowNum         // exclusive
+          }
+        }
+      }]
+    };
+    const r = await fetch(batchUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    return r.ok ? true : false;
+  } catch { return false; }
+}
+
+// ── EXPORT ──
+function exportCSV() {
+  if (fillUps.length === 0) { showToast('No data to export', 'error'); return; }
+  const header = 'Date,Odometer,Gallons,Total Price,Cost/Gal,MPG,Location';
+  const rows = fillUps.map(f =>
+    [f.date, f.odometer, f.gallons.toFixed(3), f.totalPrice.toFixed(2), f.cpg.toFixed(3), f.mpg ? f.mpg.toFixed(1) : '', `"${f.location}"`].join(',')
+  );
+  const csv = [header, ...rows].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'gasup_export.csv'; a.click();
+  showToast('CSV exported!', 'success');
+}
+
+function clearData() {
+  if (!confirm('Clear all local fill-up data? This cannot be undone.')) return;
+  fillUps = [];
+  localStorage.removeItem('gasup_data');
+  showToast('Local data cleared', 'success');
+}
+
+// ── TOAST ──
+function showToast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast ' + type + ' show';
+  setTimeout(() => { t.classList.remove('show'); }, 2500);
+}
+</script>
+</body>
+</html>
