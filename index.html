@@ -1454,6 +1454,16 @@ function getAllData() {
   return combined;
 }
 
+// ── IQR OUTLIER HELPER ──
+function iqrFences(vals) {
+  if (vals.length < 4) return { lo: -Infinity, hi: Infinity };
+  const s = vals.slice().sort((a,b) => a-b);
+  const p25 = s[Math.floor(s.length * 0.25)];
+  const p75 = s[Math.floor(s.length * 0.75)];
+  const iqr = p75 - p25;
+  return { lo: p25 - 1.5 * iqr, hi: p75 + 1.5 * iqr };
+}
+
 // ── DASHBOARD ──
 function renderDashboard() {
   const body = document.getElementById('dash-body');
@@ -1465,14 +1475,24 @@ function renderDashboard() {
   }
 
   const now = new Date();
-  const withMpg = all.filter(f => f.mpg && f.mpg > 5 && f.mpg < 100);
-  const avgMpg = withMpg.length ? withMpg.reduce((a,b) => a + b.mpg, 0) / withMpg.length : null;
-  const lastMpg = withMpg.length ? withMpg[withMpg.length - 1].mpg : null;
-  const prevMpg = withMpg.length > 1 ? withMpg[withMpg.length - 2].mpg : null;
+
+  // ── Outlier-clean MPG using IQR ──
+  const rawMpgs = all.filter(f => f.mpg && f.mpg > 5).map(f => f.mpg);
+  const mpgFence = iqrFences(rawMpgs);
+  const cleanMpgEntries = all.filter(f => f.mpg && f.mpg >= mpgFence.lo && f.mpg <= mpgFence.hi);
+  const avgMpg = cleanMpgEntries.length ? cleanMpgEntries.reduce((a,b) => a + b.mpg, 0) / cleanMpgEntries.length : null;
+  // Last MPG from clean entries only
+  const lastMpg = cleanMpgEntries.length ? cleanMpgEntries[cleanMpgEntries.length - 1].mpg : null;
+  const prevMpg = cleanMpgEntries.length > 1 ? cleanMpgEntries[cleanMpgEntries.length - 2].mpg : null;
+
+  // ── Outlier-clean CPG using IQR ──
+  const rawCpgs = all.filter(f => f.cpg > 0).map(f => f.cpg);
+  const cpgFence = iqrFences(rawCpgs);
+  const cleanCpgEntries = all.filter(f => f.cpg > 0 && f.cpg >= cpgFence.lo && f.cpg <= cpgFence.hi);
 
   const totalSpend = all.reduce((a,b) => a + b.totalPrice, 0);
   const totalGal   = all.reduce((a,b) => a + b.gallons, 0);
-  const avgCpg = totalGal > 0 ? totalSpend / totalGal : 0;
+  const avgCpg = cleanCpgEntries.length ? cleanCpgEntries.reduce((a,b) => a + b.cpg, 0) / cleanCpgEntries.length : (totalGal > 0 ? totalSpend / totalGal : 0);
   const cpm = avgMpg && avgCpg ? avgCpg / avgMpg : null;
 
   const thisMonthSpend = all
@@ -1487,7 +1507,7 @@ function renderDashboard() {
   const odos = all.map(f => f.odometer).filter(Boolean).sort((a,b) => a-b);
   const totalMiles = odos.length > 1 ? odos[odos.length-1] - odos[0] : 0;
 
-  // MPG delta
+  // MPG delta (clean only)
   let mpgDelta = '', mpgDeltaClass = 'neutral';
   if (lastMpg && prevMpg) {
     const diff = lastMpg - prevMpg;
@@ -1503,7 +1523,7 @@ function renderDashboard() {
     spendDeltaClass = diff > 0 ? 'down' : 'up';
   }
 
-  // Monthly aggregates (all time, sorted chronologically)
+  // Monthly aggregates — MPG uses clean entries only
   const monthMap = {};
   all.forEach(f => {
     const d = new Date(f.date + 'T12:00:00');
@@ -1511,28 +1531,29 @@ function renderDashboard() {
     const label = d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
     if (!monthMap[sortKey]) monthMap[sortKey] = { label, spend: 0, cpgs: [], mpgs: [] };
     monthMap[sortKey].spend += f.totalPrice;
-    monthMap[sortKey].cpgs.push(f.cpg);
-    if (f.mpg && f.mpg > 5 && f.mpg < 100) monthMap[sortKey].mpgs.push(f.mpg);
+    if (f.cpg >= cpgFence.lo && f.cpg <= cpgFence.hi) monthMap[sortKey].cpgs.push(f.cpg);
+    if (f.mpg && f.mpg >= mpgFence.lo && f.mpg <= mpgFence.hi) monthMap[sortKey].mpgs.push(f.mpg);
   });
   const sortedKeys = Object.keys(monthMap).sort();
   const allMonthLabels = sortedKeys.map(k => monthMap[k].label);
   const allSpendData   = sortedKeys.map(k => +monthMap[k].spend.toFixed(2));
-  const allCpgData     = sortedKeys.map(k => +(monthMap[k].cpgs.reduce((a,b)=>a+b,0)/monthMap[k].cpgs.length).toFixed(3));
+  const allCpgData     = sortedKeys.map(k => monthMap[k].cpgs.length ? +(monthMap[k].cpgs.reduce((a,b)=>a+b,0)/monthMap[k].cpgs.length).toFixed(3) : null);
   const allMpgData     = sortedKeys.map(k => monthMap[k].mpgs.length ? +(monthMap[k].mpgs.reduce((a,b)=>a+b,0)/monthMap[k].mpgs.length).toFixed(1) : null);
 
-  // Yearly breakdown
+  // Yearly breakdown — MPG uses IQR-clean entries
   const yearMap = {};
   all.forEach(f => {
     const yr = new Date(f.date + 'T12:00:00').getFullYear();
-    if (!yearMap[yr]) yearMap[yr] = { spend: 0, gal: 0, count: 0, mpgs: [] };
+    if (!yearMap[yr]) yearMap[yr] = { spend: 0, gal: 0, count: 0, mpgs: [], cpgs: [] };
     yearMap[yr].spend += f.totalPrice;
     yearMap[yr].gal   += f.gallons;
     yearMap[yr].count++;
-    if (f.mpg && f.mpg > 5 && f.mpg < 100) yearMap[yr].mpgs.push(f.mpg);
+    if (f.mpg && f.mpg >= mpgFence.lo && f.mpg <= mpgFence.hi) yearMap[yr].mpgs.push(f.mpg);
+    if (f.cpg > 0 && f.cpg >= cpgFence.lo && f.cpg <= cpgFence.hi) yearMap[yr].cpgs.push(f.cpg);
   });
 
   const yearRows = Object.entries(yearMap).sort((a,b) => b[0]-a[0]).map(([yr, d]) => {
-    const yAvgCpg = d.gal > 0 ? d.spend / d.gal : 0;
+    const yAvgCpg = d.cpgs.length ? d.cpgs.reduce((a,b)=>a+b,0)/d.cpgs.length : (d.gal > 0 ? d.spend / d.gal : 0);
     const yAvgMpg = d.mpgs.length ? d.mpgs.reduce((a,b)=>a+b,0)/d.mpgs.length : null;
     return `<tr style="border-bottom:1px solid var(--border)">
       <td style="font-family:var(--font-mono);color:var(--accent);padding:7px 4px">${yr}</td>
@@ -1543,41 +1564,71 @@ function renderDashboard() {
     </tr>`;
   }).join('');
 
-  // Best/worst
-  const bestMpgFill  = withMpg.length ? withMpg.reduce((a,b) => b.mpg > a.mpg ? b : a) : null;
-  const worstMpgFill = withMpg.length ? withMpg.reduce((a,b) => b.mpg < a.mpg ? b : a) : null;
-  const priced = all.filter(f => f.cpg > 0);
-  const bestCpgFill  = priced.length ? priced.reduce((a,b) => b.cpg < a.cpg ? b : a) : null;
-  const worstCpgFill = priced.length ? priced.reduce((a,b) => b.cpg > a.cpg ? b : a) : null;
+  // Best/worst — from IQR-clean sets only
+  const bestMpgFill  = cleanMpgEntries.length ? cleanMpgEntries.reduce((a,b) => b.mpg > a.mpg ? b : a) : null;
+  const worstMpgFill = cleanMpgEntries.length ? cleanMpgEntries.reduce((a,b) => b.mpg < a.mpg ? b : a) : null;
+  const bestCpgFill  = cleanCpgEntries.length ? cleanCpgEntries.reduce((a,b) => b.cpg < a.cpg ? b : a) : null;
+  const worstCpgFill = cleanCpgEntries.length ? cleanCpgEntries.reduce((a,b) => b.cpg > a.cpg ? b : a) : null;
 
-  // Station analysis
+  // Station analysis — IQR-filtered MPG and CPG per station, min 3 clean MPG samples
   const stationMap = {};
   all.forEach(f => {
     const s = f.location || 'Unknown';
     if (!stationMap[s]) stationMap[s] = { count: 0, cpgs: [], spend: 0, mpgs: [] };
     stationMap[s].count++;
-    stationMap[s].cpgs.push(f.cpg);
     stationMap[s].spend += f.totalPrice;
-    if (f.mpg && f.mpg > 5 && f.mpg < 100) stationMap[s].mpgs.push(f.mpg);
+    if (f.cpg > 0 && f.cpg >= cpgFence.lo && f.cpg <= cpgFence.hi) stationMap[s].cpgs.push(f.cpg);
+    if (f.mpg && f.mpg >= mpgFence.lo && f.mpg <= mpgFence.hi) stationMap[s].mpgs.push(f.mpg);
   });
   const stationList = Object.entries(stationMap).map(([name, d]) => ({
     name, count: d.count,
-    avgCpg: d.cpgs.reduce((a,b)=>a+b,0)/d.cpgs.length,
+    avgCpg: d.cpgs.length ? d.cpgs.reduce((a,b)=>a+b,0)/d.cpgs.length : null,
     totalSpend: d.spend,
-    avgMpg: d.mpgs.length ? d.mpgs.reduce((a,b)=>a+b,0)/d.mpgs.length : null
+    avgMpg: d.mpgs.length >= 3 ? d.mpgs.reduce((a,b)=>a+b,0)/d.mpgs.length : null,
+    mpgSamples: d.mpgs.length
   }));
-  const topStation      = stationList.sort((a,b)=>b.count-a.count)[0];
-  const cheapestStation = stationList.slice().sort((a,b)=>a.avgCpg-b.avgCpg)[0];
-  const mostSpentStation= stationList.slice().sort((a,b)=>b.totalSpend-a.totalSpend)[0];
-  const mpgByStation    = stationList.filter(s=>s.avgMpg&&s.count>=3).sort((a,b)=>b.avgMpg-a.avgMpg);
+  const topStation       = stationList.slice().sort((a,b)=>b.count-a.count)[0];
+  const cleanCpgStations = stationList.filter(s => s.avgCpg !== null);
+  const cheapestStation  = cleanCpgStations.length ? cleanCpgStations.reduce((a,b) => b.avgCpg < a.avgCpg ? b : a) : null;
+  const mostSpentStation = stationList.slice().sort((a,b)=>b.totalSpend-a.totalSpend)[0];
+  // Only stations with ≥3 clean MPG samples
+  const mpgByStation     = stationList.filter(s => s.avgMpg !== null && s.mpgSamples >= 3).sort((a,b) => b.avgMpg - a.avgMpg);
+  // Best value = highest MPG per dollar (efficiency/$)
+  const valueStations    = mpgByStation.filter(s => s.avgCpg).map(s => ({...s, valueScore: s.avgMpg / s.avgCpg})).sort((a,b) => b.valueScore - a.valueScore);
+
+  // Station table rows (min 3 visits, sorted by visit count)
+  const stationTableRows = stationList
+    .filter(s => s.count >= 3)
+    .sort((a,b) => b.count - a.count)
+    .map(s => {
+      const mpgCell = s.avgMpg ? s.avgMpg.toFixed(1) : '<span style="color:var(--muted)">—</span>';
+      const cpgCell = s.avgCpg ? '$'+s.avgCpg.toFixed(3) : '<span style="color:var(--muted)">—</span>';
+      return `<tr style="border-bottom:1px solid var(--border)">
+        <td style="font-family:var(--font-body);color:var(--text);padding:7px 4px">${s.name}</td>
+        <td style="font-family:var(--font-mono);padding:7px 4px">${s.count}x</td>
+        <td style="font-family:var(--font-mono);padding:7px 4px">${mpgCell}</td>
+        <td style="font-family:var(--font-mono);padding:7px 4px">${cpgCell}</td>
+        <td style="font-family:var(--font-mono);color:var(--muted);padding:7px 4px">$${s.totalSpend.toFixed(0)}</td>
+      </tr>`;
+    }).join('');
 
   // 12-month spend estimate
   const twelveAgo = new Date(now.getFullYear(), now.getMonth()-11, 1);
   const annualEst = all.filter(f => new Date(f.date+'T12:00:00') >= twelveAgo).reduce((a,b)=>a+b.totalPrice,0);
 
+  // MPG chart Y bounds — padded IQR fences so chart isn't dominated by spikes
+  const mpgChartMin = Math.max(0, Math.floor(mpgFence.lo) - 2);
+  const mpgChartMax = Math.ceil(mpgFence.hi) + 2;
+  // CPG chart Y bounds
+  const cpgChartMin = Math.max(0, Math.floor(cpgFence.lo * 10) / 10 - 0.1);
+  const cpgChartMax = Math.ceil(cpgFence.hi * 10) / 10 + 0.1;
+
+  // Station MPG chart data (for bar chart)
+  const stationBarData = mpgByStation.slice(0, 8);
+
   body.innerHTML = `
     <div style="font-family:var(--font-mono);font-size:10px;color:var(--muted);text-align:center;padding:2px 0 6px">
-      ${all.length} fill-ups · ${all.filter(f=>f._source==='sheet').length} from sheet · ${all.filter(f=>f._source!=='sheet').length} local
+      ${all.length} fill-ups · ${all.filter(f=>f._source==='sheet').length} from sheet · ${all.filter(f=>f._source!=='sheet').length} local · outliers excluded from MPG/price stats
     </div>
 
     <div class="stats-grid">
@@ -1627,7 +1678,7 @@ function renderDashboard() {
     </div>
 
     <div class="chart-card">
-      <div class="chart-title">MPG Per Fill-Up — All Time</div>
+      <div class="chart-title">MPG Per Fill-Up — All Time <span style="color:var(--muted);font-size:9px">(outliers removed)</span></div>
       <div class="chart-wrap"><canvas id="chart-mpg"></canvas></div>
     </div>
 
@@ -1637,9 +1688,15 @@ function renderDashboard() {
     </div>
 
     <div class="chart-card">
-      <div class="chart-title">Cost Per Gallon — All Time</div>
+      <div class="chart-title">Cost Per Gallon — All Time <span style="color:var(--muted);font-size:9px">(outliers removed)</span></div>
       <div class="chart-wrap"><canvas id="chart-cpg"></canvas></div>
     </div>
+
+    ${stationBarData.length >= 2 ? `
+    <div class="chart-card">
+      <div class="chart-title">Avg MPG by Station <span style="color:var(--muted);font-size:9px">(min 3 clean fills)</span></div>
+      <div class="chart-wrap" style="height:${Math.max(140, stationBarData.length * 30)}px"><canvas id="chart-station"></canvas></div>
+    </div>` : ''}
 
     <div class="chart-card">
       <div class="chart-title">Yearly Summary</div>
@@ -1655,12 +1712,27 @@ function renderDashboard() {
       </table>
     </div>
 
+    ${stationTableRows ? `
+    <div class="chart-card">
+      <div class="chart-title">Station Breakdown <span style="color:var(--muted);font-size:9px">(min 3 visits · MPG outliers removed)</span></div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr style="color:var(--muted);font-family:var(--font-display);font-size:10px;letter-spacing:1px;text-transform:uppercase;border-bottom:1px solid var(--border)">
+          <th style="text-align:left;padding:4px 4px 8px">Station</th>
+          <th style="text-align:left;padding:4px 4px 8px">Visits</th>
+          <th style="text-align:left;padding:4px 4px 8px">MPG</th>
+          <th style="text-align:left;padding:4px 4px 8px">$/Gal</th>
+          <th style="text-align:left;padding:4px 4px 8px">Spent</th>
+        </tr></thead>
+        <tbody>${stationTableRows}</tbody>
+      </table>
+    </div>` : ''}
+
     ${bestMpgFill ? `
     <div class="insight-card">
       <div class="insight-icon green">🏆</div>
       <div>
         <div class="insight-title">MPG Record</div>
-        <div class="insight-body">Best ever: <strong>${bestMpgFill.mpg.toFixed(1)} mpg</strong> on ${formatDateDisplay(bestMpgFill.date)} at ${bestMpgFill.location}.${worstMpgFill ? ' Worst: <strong>' + worstMpgFill.mpg.toFixed(1) + ' mpg</strong> at ' + worstMpgFill.location + '.' : ''}</div>
+        <div class="insight-body">Best clean fill: <strong>${bestMpgFill.mpg.toFixed(1)} mpg</strong> on ${formatDateDisplay(bestMpgFill.date)} at ${bestMpgFill.location}.${worstMpgFill ? ' Worst: <strong>' + worstMpgFill.mpg.toFixed(1) + ' mpg</strong> at ' + worstMpgFill.location + '.' : ''} Normal range: ${mpgFence.lo.toFixed(1)}–${mpgFence.hi.toFixed(1)} mpg.</div>
       </div>
     </div>` : ''}
 
@@ -1673,21 +1745,12 @@ function renderDashboard() {
       </div>
     </div>` : ''}
 
-    ${topStation ? `
+    ${valueStations.length >= 2 ? `
     <div class="insight-card">
-      <div class="insight-icon orange">⛽</div>
+      <div class="insight-icon orange">⚡</div>
       <div>
-        <div class="insight-title">Station Habits</div>
-        <div class="insight-body">Most visited: <strong>${topStation.name}</strong> (${topStation.count}x · $${mostSpentStation.totalSpend.toFixed(0)} total). Cheapest avg: <strong>${cheapestStation.name}</strong> at $${cheapestStation.avgCpg.toFixed(3)}/gal.</div>
-      </div>
-    </div>` : ''}
-
-    ${mpgByStation.length >= 2 ? `
-    <div class="insight-card">
-      <div class="insight-icon red">📈</div>
-      <div>
-        <div class="insight-title">MPG by Station</div>
-        <div class="insight-body">${mpgByStation.slice(0,4).map(s => `<strong>${s.name}</strong>: ${s.avgMpg.toFixed(1)} mpg`).join(' · ')}</div>
+        <div class="insight-title">Best Value Station</div>
+        <div class="insight-body"><strong>${valueStations[0].name}</strong> gives the best MPG per dollar — ${valueStations[0].avgMpg.toFixed(1)} mpg at $${valueStations[0].avgCpg.toFixed(3)}/gal. Least efficient: <strong>${valueStations[valueStations.length-1].name}</strong> at ${valueStations[valueStations.length-1].avgMpg.toFixed(1)} mpg / $${valueStations[valueStations.length-1].avgCpg.toFixed(3)}/gal.</div>
       </div>
     </div>` : ''}
 
@@ -1702,27 +1765,26 @@ function renderDashboard() {
   `;
 
   setTimeout(() => {
-    // Destroy existing charts using registry
     destroyCharts();
 
     const chartDefaults = {
       responsive: true,
       maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ' ' + ctx.parsed.y } } },
       scales: {
         x: { grid: { color: '#232830' }, ticks: { color: '#6b7280', font: { family: 'Share Tech Mono', size: 9 }, maxTicksLimit: 14 } },
         y: { grid: { color: '#232830' }, ticks: { color: '#6b7280', font: { family: 'Share Tech Mono', size: 10 } } }
       }
     };
 
-    // MPG per individual fill-up
+    // MPG chart — IQR-clean only, bounded Y axis
     registerChart('mpg', new Chart(document.getElementById('chart-mpg'), {
       type: 'line',
       data: {
-        labels: withMpg.map(f => f.date.slice(5)),
-        datasets: [{ data: withMpg.map(f => +f.mpg.toFixed(1)), borderColor: '#f5a623', backgroundColor: 'rgba(245,166,35,0.06)', tension: 0.3, pointRadius: 2, borderWidth: 2, spanGaps: true }]
+        labels: cleanMpgEntries.map(f => f.date.slice(5)),
+        datasets: [{ data: cleanMpgEntries.map(f => +f.mpg.toFixed(1)), borderColor: '#f5a623', backgroundColor: 'rgba(245,166,35,0.06)', tension: 0.3, pointRadius: 2, borderWidth: 2, spanGaps: true }]
       },
-      options: { ...chartDefaults }
+      options: { ...chartDefaults, scales: { ...chartDefaults.scales, y: { ...chartDefaults.scales.y, suggestedMin: mpgChartMin, suggestedMax: mpgChartMax } } }
     }));
 
     registerChart('spend', new Chart(document.getElementById('chart-spend'), {
@@ -1738,10 +1800,37 @@ function renderDashboard() {
       type: 'line',
       data: {
         labels: allMonthLabels,
-        datasets: [{ data: allCpgData, borderColor: '#4d9fff', backgroundColor: 'rgba(77,159,255,0.06)', tension: 0.4, pointRadius: 2, borderWidth: 2 }]
+        datasets: [{ data: allCpgData, borderColor: '#4d9fff', backgroundColor: 'rgba(77,159,255,0.06)', tension: 0.4, pointRadius: 2, borderWidth: 2, spanGaps: true }]
       },
-      options: { ...chartDefaults }
+      options: { ...chartDefaults, scales: { ...chartDefaults.scales, y: { ...chartDefaults.scales.y, suggestedMin: cpgChartMin, suggestedMax: cpgChartMax } } }
     }));
+
+    // Station MPG horizontal bar chart
+    const stationChartEl = document.getElementById('chart-station');
+    if (stationChartEl && stationBarData.length >= 2) {
+      registerChart('station', new Chart(stationChartEl, {
+        type: 'bar',
+        data: {
+          labels: stationBarData.map(s => s.name),
+          datasets: [{
+            data: stationBarData.map(s => +s.avgMpg.toFixed(1)),
+            backgroundColor: stationBarData.map((s, i) => i === 0 ? 'rgba(57,217,138,0.7)' : 'rgba(245,166,35,0.45)'),
+            borderColor: stationBarData.map((s, i) => i === 0 ? '#39d98a' : '#f5a623'),
+            borderWidth: 1, borderRadius: 3
+          }]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ' ' + ctx.parsed.x.toFixed(1) + ' mpg' } } },
+          scales: {
+            x: { grid: { color: '#232830' }, ticks: { color: '#6b7280', font: { family: 'Share Tech Mono', size: 9 } }, suggestedMin: mpgChartMin, suggestedMax: mpgChartMax },
+            y: { grid: { display: false }, ticks: { color: '#e8eaed', font: { family: 'Barlow', size: 11 } } }
+          }
+        }
+      }));
+    }
   }, 80);
 }
 
