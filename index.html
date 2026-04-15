@@ -1042,7 +1042,7 @@ document.addEventListener('focusout', e => {
 });
 
 // ── INIT ──
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   const today = new Date().toISOString().split('T')[0];
   document.getElementById('field-date').value = today;
   document.getElementById('log-date-display').textContent = formatDateDisplay(today);
@@ -1051,6 +1051,19 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   loadSettings();
   autoDetectLocation();
+
+  // Prefetch sheet data in background on load if settings exist
+  // This ensures Dashboard and History are ready instantly without waiting for tab tap
+  const { sheetId, apiKey } = getSettings();
+  if (sheetId && apiKey) {
+    loadSheetData().then(rows => {
+      if (rows.length > 0) {
+        sheetData = rows;
+        _sheetCache = { data: rows, ts: Date.now() };
+        invalidateAllData();
+      }
+    }).catch(() => {}); // silent fail — will retry when user taps tab
+  }
 });
 
 function formatDateDisplay(dateStr) {
@@ -1066,14 +1079,29 @@ async function showScreen(name) {
   document.getElementById('screen-' + name).classList.add('active');
   document.getElementById('nav-' + name).classList.add('active');
   if (name === 'dash' || name === 'history') {
-    if (!isCacheValid()) {
-      // Show spinner only on first load or stale cache
+    const needsFetch = !isCacheValid() || sheetData.length === 0;
+    if (needsFetch) {
+      // Show spinner on first load or stale/empty cache
       if (name === 'dash') document.getElementById('dash-body').innerHTML = `<div class="empty-state"><div class="icon" style="animation:spin 1s linear infinite">⏳</div><p>Loading sheet data…</p></div>`;
       if (name === 'history') document.getElementById('history-body').innerHTML = `<div class="empty-state"><div class="icon" style="animation:spin 1s linear infinite">⏳</div><p>Loading…</p></div>`;
-      const loaded = await loadSheetData();
-      _sheetCache = { data: loaded, ts: Date.now() };
-      sheetData = loaded;
-      invalidateAllData();
+      try {
+        const loaded = await loadSheetData();
+        if (loaded.length > 0) {
+          sheetData = loaded;
+          _sheetCache = { data: loaded, ts: Date.now() };
+          invalidateAllData();
+        } else if (sheetData.length === 0) {
+          // Settings exist but fetch returned empty — show helpful message
+          const { sheetId, apiKey } = getSettings();
+          if (!sheetId || !apiKey) {
+            if (name === 'dash') document.getElementById('dash-body').innerHTML = `<div class="empty-state"><div class="icon">⚙️</div><p>Add your Sheet ID and API Key in Settings to load historical data</p></div>`;
+            if (name === 'history') document.getElementById('history-body').innerHTML = `<div class="empty-state"><div class="icon">⚙️</div><p>Connect your sheet in Settings</p></div>`;
+            return;
+          }
+        }
+      } catch(e) {
+        console.error('Sheet load failed:', e);
+      }
     } else {
       sheetData = _sheetCache.data;
     }
@@ -1388,8 +1416,21 @@ async function testConnection() {
 function saveSettings() {
   localStorage.setItem('gasup_sheet_id', document.getElementById('setting-sheet-id').value.trim());
   localStorage.setItem('gasup_api_key', document.getElementById('setting-api-key').value.trim());
-  localStorage.setItem('gasup_tab_name', document.getElementById('setting-tab-name').value.trim() || 'Sheet1');
-  showToast('Settings saved', 'success');
+  localStorage.setItem('gasup_tab_name', document.getElementById('setting-tab-name').value.trim() || 'Raw Data Input');
+  showToast('Settings saved — loading data…', 'success');
+  // Immediately fetch sheet data so Dashboard is ready when user navigates to it
+  invalidateCache();
+  invalidateAllData();
+  loadSheetData().then(rows => {
+    if (rows.length > 0) {
+      sheetData = rows;
+      _sheetCache = { data: rows, ts: Date.now() };
+      invalidateAllData();
+      showToast(`✓ ${rows.length} fill-ups loaded`, 'success');
+    } else {
+      showToast('Saved — no data returned, check API key', 'error');
+    }
+  }).catch(() => showToast('Saved — sheet fetch failed', 'error'));
 }
 
 function loadSettings() {
@@ -1470,7 +1511,12 @@ function renderDashboard() {
 
   const all = getAllData();
   if (all.length === 0) {
-    body.innerHTML = `<div class="empty-state"><div class="icon">📊</div><p>No data yet — log a fill-up or connect your sheet in Settings</p></div>`;
+    const { sheetId, apiKey } = getSettings();
+    if (!sheetId || !apiKey) {
+      body.innerHTML = `<div class="empty-state"><div class="icon">⚙️</div><p>Go to <strong>Settings</strong> and enter your Sheet ID and API Key to load your data</p></div>`;
+    } else {
+      body.innerHTML = `<div class="empty-state"><div class="icon">📊</div><p>No data loaded yet. Try tapping Dashboard again, or check your API key in Settings.</p></div>`;
+    }
     return;
   }
 
