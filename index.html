@@ -1226,15 +1226,24 @@ function updateDerived() {
     document.getElementById('cpg-box').style.display = 'none';
   }
 
-  // MPG from last fill-up
-  if (fillUps.length > 0 && odo > 0 && gal > 0) {
-    const last = fillUps[fillUps.length - 1];
-    const miles = odo - last.odometer;
-    if (miles > 0) {
-      const mpg = (miles / gal).toFixed(1);
-      document.getElementById('derived-mpg').textContent = mpg;
-      document.getElementById('mpg-box').style.display = 'flex';
+  // MPG from last fill-up — use getAllData() so sheet entries count too
+  if (odo > 0 && gal > 0) {
+    const allData = getAllData();
+    if (allData.length > 0) {
+      // Find most recent entry before this odo
+      const sorted = allData.filter(f => f.odometer < odo).sort((a,b) => b.odometer - a.odometer);
+      const last = sorted[0];
+      if (last) {
+        const miles = odo - last.odometer;
+        if (miles > 0 && miles < 800) {
+          const mpg = (miles / gal).toFixed(1);
+          document.getElementById('derived-mpg').textContent = mpg;
+          document.getElementById('mpg-box').style.display = 'flex';
+        }
+      }
     }
+  } else {
+    document.getElementById('mpg-box').style.display = 'none';
   }
 }
 
@@ -1251,10 +1260,14 @@ async function submitFillUp() {
 
   const cpg = price / gal;
   let mpg = null;
-  if (fillUps.length > 0) {
-    const last = fillUps[fillUps.length - 1];
-    const miles = odo - last.odometer;
-    if (miles > 0) mpg = miles / gal;
+  const allForMpg = getAllData();
+  if (allForMpg.length > 0) {
+    const sorted = allForMpg.filter(f => f.odometer < odo).sort((a,b) => b.odometer - a.odometer);
+    const last = sorted[0];
+    if (last) {
+      const miles = odo - last.odometer;
+      if (miles > 0 && miles < 800) mpg = miles / gal;
+    }
   }
 
   const entry = {
@@ -1402,9 +1415,9 @@ async function loadSheetData() {
       // Sheet columns: A=Year, B=Year-Month, C=Date, D=Where, E=Odometer, F=Gallons, G=Total Paid
       const date = normalizeDate(row[2]); // normalize M/D/YYYY → YYYY-MM-DD
       const location = (row[3] || '').trim();
-      const odometer = parseFloat(row[4]) || 0;
-      const gallons = parseFloat(row[5]) || 0;
-      const totalPrice = parseFloat(row[6]) || 0;
+      const odometer = parseFloat((row[4] || '').toString().replace(/[,\s]/g, '')) || 0;
+      const gallons = parseFloat((row[5] || '').toString().replace(/[,\s]/g, '')) || 0;
+      const totalPrice = parseFloat((row[6] || '').toString().replace(/[$,\s]/g, '')) || 0;
       if (!date || !odometer || !gallons) return null;
       const cpg = gallons > 0 ? totalPrice / gallons : 0;
       return {
